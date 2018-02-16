@@ -89,6 +89,7 @@ func verifyPassword(s string) (sevenOrMore, number, upper, special bool) {
 	return
 }
 
+// ParseEntry : parse and control entries
 func ParseEntry(msg []byte) (string, string, string, string, string) {
 
 	type Info struct {
