@@ -1,0 +1,11 @@
+{
+    "Port":"5002",
+    "User":"crise",
+    "Server":"http://crise.example.com",
+    "LogFile":"production.log",
+    "CorsOrigin":"*",
+    "PublicDir":"dir",
+    "PublicPath":"dir/",
+    "MngmtDir":"",
+    "AuthAdmins": ["admin1","admin2"]
+}

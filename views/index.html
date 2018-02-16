@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CrisisMgmt</title>
+    <script src="/mui-combined.min.js"></script>
+   <style>
+    body {background-color: #eee;}
+    #bstop{visibility: hidden;}
+    #mstop{visibility: hidden;}
+    .mui-appbar a {color: #fff;}
+    .mui-appbar a:hover { text-decoration: none; } 
+   </style>
+  </head>
+
+<body>
+
+
+<div class="mui-appbar mui--appbar-min-height">
+  <table width="100%">
+    <tr style="vertical-align:middle;">
+      <td class="mui--appbar-height"><div class="mui--text-headline"><a href="{{.serv}}" title="{{.serv}}">Exercice Crise</a></div></td>
+      <td class="mui--appbar-height" align="right">{{.user}}</td></td>
+    </tr>
+  </table>
+</div>
+
+<p />
+<div class="mui-container-fluid">
+ <div class="mui-row">
+  <div class="mui-col-xs-6 mui-col-md-4 mui-col-md-offset-4">
+ 
+  <div class="mui--text-headline">Démarrage des services</div> 
+  <div class="mui-panel">
+  <div  class="mui-form">
+   <div class="mui-textfield">
+   <input placeholder="pass" id="pass" type="text" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" title="Au moins 1 chiffre, 1 minuscule, 1 majuscule et minimum 8 caractères" required />
+    <label>Mot de passe (impératif)</label>
+   </div>
+   <div class="mui-select" id="files">
+    <label>Sessions</label>
+   </div>
+   <div class="mui-form-inline mui--text-right">
+   <input type="text" id="pre" size="1" maxlength="1" pattern="[a-z]" title="Une lettre, pour plusieurs tests par jour" />
+    <label>Préfix optionnel</label>
+   </div>
+   <button id="bstart" class="mui-btn mui-btn--primary" type="submit" onclick="start()">Start</button>
+   <button id="bstop" class="mui-btn mui-btn--danger" type="submit" onclick="stop()">Stop</button>
+   </div>
+  </div>
+
+  </div>
+ </div>
+
+ <div class="mui-row">
+  <div class="mui-col-xs-6 mui-col-md-4 mui-col-md-offset-4">
+  <div class="mui--text-headline">Informations</div> 
+   <div class="mui-panel">
+    <div id="data"></div>
+   </div>
+  </div>
+ </div>
+
+</div>
+ <div id="mstop" class="mui-row">
+  <div class="mui-col-xs-8 mui-col-md-6 mui-col-md-offset-3">
+   <div class="mui-panel">
+   <table class="mui-table mui-table--bordered">
+   <tr>
+   <td class="mui--text-right"><b>Clés d'accès:</b></td><td> <span id="muser"></span> | <tt><span id="mpass"></span></tt></td>
+   </tr>
+   <tr>
+   <tr>
+   <td class="mui--text-right">Tableau de bord</td><td> <a href="{{.serv}}/board/" target=_blank>{{.serv}}/board/</a></td>
+   </tr>
+   <tr>
+   <td class="mui--text-right">Main courante</td><td> <a href="{{.serv}}/log/" target=_blank>{{.serv}}/log/</a></td>
+   </tr>
+   <tr>
+   <td class="mui--text-right"><b>Sauvegarde:</b> Fichier log (<tt>chrono.log</tt>)</td><td><a id="mlog"></a></td>
+   </tr>
+   <tr>
+   <td class="mui--text-right"><b>Sauvegarde:</b> Fichier board (<tt>crisisboard.sql</tt>)</td><td><a id="mboard"></a></td>
+   </tr>
+   </table>
+   </div>
+  </div>
+ </div>
+
+</div>
+
+ <script>
+ var url = "ws://" + window.location.host + "/{{.wspath}}ws";
+ var ws = new WebSocket(url);
+
+ var data = document.getElementById("data");
+ var files = document.getElementById("files");
+ var bstop = document.getElementById("bstop");
+ var mstop = document.getElementById("mstop");
+ var bstart = document.getElementById("bstart");
+ var mlog = document.getElementById("mlog");
+ var mboard = document.getElementById("mboard");
+ var mpass = document.getElementById("mpass");
+ var muser = document.getElementById("muser");
+
+ var selectList = document.createElement("select");
+ selectList.id = "file";
+ files.appendChild(selectList);
+ var o = document.createElement("option");
+ o.value = "";
+ o.text = "Nouvelle session";
+ selectList.appendChild(o);
+
+ function stop() {
+    ws.send(JSON.stringify({CMD: "stop"}));
+    bstop.style.visibility = 'hidden';
+    mstop.style.visibility = 'hidden';
+    bstart.style.visibility = 'visible';
+ };
+
+ function start() {
+    var pass = document.getElementById("pass").value;
+    var file = document.getElementById("file").value;
+    var pre = document.getElementById("pre").value;
+    ws.send(JSON.stringify({CMD: "start", Pass: pass, File: file, Pre: pre}));
+    mpass.innerText = pass;
+    bstart.style.visibility = 'hidden';
+    bstop.style.visibility = 'visible';
+    mstop.style.visibility = 'visible';
+ };
+
+ ws.onmessage = function (msg) {
+      // console.log(msg);
+      var object = JSON.parse(msg.data);
+      if ( object.cmdstatus !== "" )  {
+       data.style.color = "black";
+       data.innerText = object.cmdstatus + ' par ' + object.admin + ' le ' + object.time ;
+       if ( object.error !== "" )  {
+         data.innerText = object.error;
+         data.style.color = "red";
+       };
+      };
+      if ( object.cmdstatus === "start" )  {
+       bstart.style.visibility = 'hidden';
+       bstop.style.visibility = 'visible';
+       mstop.style.visibility = 'visible';
+       muser.innerText = object.user;
+       document.getElementById("pass").value = object.pass;
+       mpass.innerText = object.pass;
+      };
+      if ( object.cmdstatus === "stop" )  {
+       bstop.style.visibility = 'hidden';
+       mstop.style.visibility = 'hidden';
+       bstart.style.visibility = 'visible';
+      }
+      
+      if ( object.publicfile !== "" )  {
+       var url = {{.serv}} + '/' + object.publicfile + '.sql';
+       mboard.innerText = url ;
+       mboard.href = url;
+       url = {{.serv}} + '/' + object.publicfile + '.log';
+       mlog.innerText = url;
+       mlog.href = url;
+      };
+      var array = object.files;
+      var sl = document.getElementById("file");
+      for (var i = 0; i < array.length; i++) {
+          var option = document.createElement("option");
+          option.value = array[i];
+          option.text = array[i];
+          var add = true;
+          for ( var j = 0; j < sl.childNodes.length; j++) {
+              if (sl.childNodes[j].value === option.value ) {
+                add = false;
+              }
+          }
+          if ( add === true ) {
+            sl.appendChild(option);
+          }
+      };
+
+ };
+
+ setTimeout(function(){
+    ws.send(JSON.stringify({CMD: "init"}));
+    }, 1500)
+
+ </script>
+</body>
+</html>
