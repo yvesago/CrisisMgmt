@@ -21,6 +21,7 @@ import (
 	"unicode"
 )
 
+// Config : struct to read json config file
 type Config struct {
 	Port       string
 	Server     string
@@ -33,6 +34,7 @@ type Config struct {
 	LogFile    string
 }
 
+// Res : status of current process
 type Res struct {
 	Status     string `json:"cmdstatus"`
 	User       string `json:"user"`
@@ -58,7 +60,10 @@ func randStringBytes(n int) string {
 	return string(b)
 }
 
+// IsLetter : test single letter
 var IsLetter = regexp.MustCompile(`^[a-zA-Z]$`).MatchString
+
+// IsSafeChar : test simple chars
 var IsSafeChar = regexp.MustCompile(`^[a-zA-Z0-9-]+$`).MatchString
 
 //var IsDate = regexp.MustCompile(`^\d{2}-\d{2}-\d{4}$`).MatchString
@@ -121,6 +126,7 @@ func ParseEntry(msg []byte) (string, string, string, string, string) {
 	if objmap.File != "" && IsSafeChar(objmap.File) == false {
 		err = "Bad file name"
 		objmap.CMD = "error"
+		objmap.File = ""
 		// fmt.Printf("== %s ==\n", err)
 	}
 
@@ -143,6 +149,7 @@ func readFiles() []string {
 	return listFiles
 }
 
+// StopProc : remove links and stop processes
 func StopProc(res Res) Res {
 	cl := res.ProcLog
 	cb := res.ProcBoard
@@ -156,6 +163,7 @@ func StopProc(res Res) Res {
 
 	os.Remove(res.PublicPath + ".log")
 	os.Remove(res.PublicPath + ".sql")
+
 	if err := cl.Process.Kill(); err != nil {
 		log.Println(err)
 		res.Error = err.Error()
@@ -172,6 +180,7 @@ func StopProc(res Res) Res {
 	return res
 }
 
+// StartProc : start processes and create links for public download
 func StartProc(res Res, file string, pre string, pass string, debug bool, config Config) Res {
 	logpath := "./CrisisLog"
 	boardpath := "./CrisisBoard"

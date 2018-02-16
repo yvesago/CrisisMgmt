@@ -16,7 +16,6 @@ func init() {
 	rand.Seed(1) // fix rand fo tests
 }
 
-
 func TestParse(t *testing.T) {
 
 	assert.Equal(t, "XpdUC2sK8Tpb", randStringBytes(12), "test 12 char rand string")
@@ -49,6 +48,9 @@ func TestParse(t *testing.T) {
 
 	assert.Equal(t, "error", hcmd, "CMD error")
 	assert.Equal(t, "Bad file name", emsg, "no error")
+	assert.Equal(t, "a", pre, "no error")
+	assert.Equal(t, "", file, "bad file name")
+	assert.Equal(t, "qwerty1Q", pass, "no error")
 
 	sevenOrMore, number, upper, special := verifyPassword("qwerty1Q@")
 	assert.Equal(t, true, sevenOrMore, "sevenOrMore")
@@ -66,6 +68,9 @@ func TestParse(t *testing.T) {
 
 	sevenOrMore, number, upper, special = verifyPassword("qwerty")
 	assert.Equal(t, false, sevenOrMore, "sevenOrMore")
+	assert.Equal(t, false, number, "no number")
+	assert.Equal(t, false, upper, "no upper case")
+	assert.Equal(t, false, special, "no special")
 
 }
 
@@ -99,7 +104,7 @@ func TestServer(t *testing.T) {
 	//fmt.Printf("%+v\n", resp1.Body)
 	assert.Equal(t, 200, resp1.Code, "template success")
 
-    // test load /mui-combined.min.js
+	// test load /mui-combined.min.js
 	req, err = http.NewRequest("GET", "/mui-combined.min.js", nil)
 	if err != nil {
 		fmt.Println(err)
