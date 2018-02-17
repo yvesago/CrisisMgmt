@@ -80,7 +80,7 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, true, upper, "upper")
 	assert.Equal(t, true, special, "special")
 	validPass := false
-	validPass = special && number && upper && special
+	validPass = sevenOrMore && number && upper && special
 	assert.Equal(t, true, validPass, "valid pass")
 
 	sevenOrMore, number, upper, special = verifyPassword("qwerty1Q")
@@ -89,7 +89,7 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, true, upper, "upper")
 	assert.Equal(t, false, special, "special")
 	validPass = false
-	validPass = special && number && upper && special
+	validPass = sevenOrMore && number && upper && special
 	assert.Equal(t, false, validPass, "unvalid pass")
 
 	sevenOrMore, number, upper, special = verifyPassword("qwerty")
