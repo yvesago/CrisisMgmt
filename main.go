@@ -44,7 +44,7 @@ type Res struct {
 	File       string   `json:"file"`       // current working files
 	PublicFile string   `json:"publicfile"` // for URL
 	Error      string   `json:"error"`
-	PublicPath string   // full path of processes files, not exported to UI
+	PublicPath string   // full path of processes files
 	Files      []string `json:"files"` // list of usable files
 	ProcLog    *exec.Cmd
 	ProcBoard  *exec.Cmd
@@ -117,7 +117,7 @@ func ParseEntry(msg []byte) (string, string, string, string, string) {
 		objmap.CMD = "error"
 	}
 
-	validCmd := []string{"start", "stop", "error"}
+	validCmd := []string{"init", "start", "stop", "error"}
 	if contains(validCmd, objmap.CMD) == false {
 		err = "Bad cmd"
 		objmap.CMD = "error"
@@ -279,7 +279,7 @@ func server(r *gin.Engine, debug bool, config Config) {
 	r.Use(cors.Middleware(cors.Config{
 		Origins:         config.CorsOrigin,
 		Methods:         "GET, PUT",
-		RequestHeaders:  "Origin, Authorization, Content-Type, Bearer",
+		RequestHeaders:  "Origin, Content-Type",
 		MaxAge:          50 * time.Second,
 		Credentials:     true,
 		ValidateHeaders: false,
@@ -292,13 +292,30 @@ func server(r *gin.Engine, debug bool, config Config) {
 	r.HTMLRender = gintemplate.Default()
 
 	r.GET("/", func(c *gin.Context) {
-		//		http.ServeFile(c.Writer, c.Request, "index.html")
-		c.HTML(200, "index.html", gin.H{
-			"IP":     c.ClientIP(),
-			"wspath": config.MngmtDir,
-			"serv":   config.Server,
-			"user":   c.Request.Header["X-Forwarded-User"],
-		})
+		// http.ServeFile(c.Writer, c.Request, "index.html")
+		access := false
+		for _, u := range c.Request.Header["X-Forwarded-User"] {
+			if contains(config.AuthAdmins, u) == true {
+				access = true
+			}
+		}
+
+		// allow access without auth if AuthAdmins contains ""
+		if len(c.Request.Header["X-Forwarded-User"]) == 0 && contains(config.AuthAdmins, "") {
+			access = true
+		}
+
+		if access == false {
+			c.JSON(401, "Access denied")
+			c.Abort()
+		} else {
+			c.HTML(200, "index.html", gin.H{
+				"IP":     c.ClientIP(),
+				"wspath": config.MngmtDir,
+				"serv":   config.Server,
+				"user":   c.Request.Header["X-Forwarded-User"],
+			})
+		}
 	})
 
 	r.GET("/ws", func(c *gin.Context) {

@@ -7,5 +7,5 @@
     "PublicDir":"dir",
     "PublicPath":"dir/",
     "MngmtDir":"",
-    "AuthAdmins": ["admin1","admin2"]
+    "AuthAdmins": ["","admin1","admin2"]
 }

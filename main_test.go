@@ -20,11 +20,20 @@ func TestParse(t *testing.T) {
 
 	assert.Equal(t, "XpdUC2sK8Tpb", randStringBytes(12), "test 12 char rand string")
 
-	// start old session
-	o := []byte(`{"CMD":"start","Pass":"qwerty1Q","File":"a12-02-2018","Pre":""}`)
+	// start
+	o := []byte(`{"CMD":"init"}`)
 
 	emsg, hcmd, pass, file, pre := ParseEntry(o)
 
+	assert.Equal(t, "init", hcmd, "CMD start")
+	assert.Equal(t, "", emsg, "no error")
+	assert.Equal(t, "", pass, "pass")
+	assert.Equal(t, "", file, "file")
+	assert.Equal(t, "", pre, "prefix")
+
+	// start old session
+	o = []byte(`{"CMD":"start","Pass":"qwerty1Q","File":"a12-02-2018","Pre":""}`)
+	emsg, hcmd, pass, file, pre = ParseEntry(o)
 	assert.Equal(t, "start", hcmd, "CMD start")
 	assert.Equal(t, "", emsg, "no error")
 	assert.Equal(t, "qwerty1Q", pass, "pass")
@@ -109,23 +118,37 @@ func TestServer(t *testing.T) {
 		PublicDir:  "dir",
 		PublicPath: "dir/",
 		MngmtDir:   "",
-		AuthAdmins: []string{"admin"},
+		AuthAdmins: []string{"", "admin"}, // allow access whithout auth
 	}
 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
 	server(router, true, config)
+	/**
+	  test access
+	  **/
+	req, err := http.NewRequest("GET", "/", nil)
+	req.Header.Set("X-Forwarded-User", "user")
+	resp1 := httptest.NewRecorder()
+	router.ServeHTTP(resp1, req)
+	assert.Equal(t, 401, resp1.Code, "access denied")
+
+	req, err = http.NewRequest("GET", "/", nil)
+	resp1 = httptest.NewRecorder()
+	router.ServeHTTP(resp1, req)
+	assert.Equal(t, 200, resp1.Code, "access allow whithout auth")
 
 	/**
 	test template
 	**/
-	req, err := http.NewRequest("GET", "/", nil)
+	req, err = http.NewRequest("GET", "/", nil)
+	req.Header.Set("X-Forwarded-User", "admin")
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	resp1 := httptest.NewRecorder()
+	resp1 = httptest.NewRecorder()
 	router.ServeHTTP(resp1, req)
 	//fmt.Printf("%+v\n", resp1.Body)
 	assert.Equal(t, 200, resp1.Code, "template success")
@@ -156,8 +179,9 @@ func TestServer(t *testing.T) {
 	s := httptest.NewServer(router)
 	defer s.Close()
 
+	h := http.Header{"X-Forwarded-User": {"admin"}}
 	d := websocket.Dialer{}
-	c, resp, err := d.Dial("ws://"+s.Listener.Addr().String()+"/ws", nil)
+	c, resp, err := d.Dial("ws://"+s.Listener.Addr().String()+"/ws", h)
 	if err != nil {
 		t.Fatal(err)
 	}
