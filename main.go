@@ -24,28 +24,28 @@ import (
 // Config : struct to read json config file
 type Config struct {
 	Port       string
-	Server     string
-	User       string
+	Server     string // server url for html template
+	User       string // user id for processes auth
 	CorsOrigin string
 	PublicDir  string // [files/] for URL
 	PublicPath string // [/home/files/] real path to write links
 	MngmtDir   string // [mngmt/] protected websocket dir
 	AuthAdmins []string
-	LogFile    string
+	LogFile    string // CrisisMgmt logs, not used with debug
 }
 
 // Res : status of current process
 type Res struct {
-	Status     string `json:"cmdstatus"`
-	User       string `json:"user"`
-	Admin      string `json:"admin"`
-	Pass       string `json:"pass"`
-	Time       string `json:"time"`
-	File       string `json:"file"`
-	PublicFile string `json:"publicfile"`
-	Error      string `json:"error"`
-	PublicPath string
-	Files      []string `json:"files"`
+	Status     string   `json:"cmdstatus"`
+	User       string   `json:"user"`       // user id for processes auth
+	Pass       string   `json:"pass"`       // pass for processes auth
+	Admin      string   `json:"admin"`      // admin id who launch processes
+	Time       string   `json:"time"`       // start time
+	File       string   `json:"file"`       // current working files
+	PublicFile string   `json:"publicfile"` // for URL
+	Error      string   `json:"error"`
+	PublicPath string   // full path of processes files, not exported to UI
+	Files      []string `json:"files"` // list of usable files
 	ProcLog    *exec.Cmd
 	ProcBoard  *exec.Cmd
 }
@@ -89,6 +89,15 @@ func verifyPassword(s string) (sevenOrMore, number, upper, special bool) {
 	return
 }
 
+func contains(s []string, t string) bool {
+	for _, v := range s {
+		if v == t {
+			return true
+		}
+	}
+	return false
+}
+
 // ParseEntry : parse and control entries
 func ParseEntry(msg []byte) (string, string, string, string, string) {
 
@@ -108,12 +117,20 @@ func ParseEntry(msg []byte) (string, string, string, string, string) {
 		objmap.CMD = "error"
 	}
 
-	if (objmap.File == "") && (objmap.CMD == "start") {
-		if (objmap.Pre != "") && (IsLetter(objmap.Pre) == false) {
-			err = "Bad prefix"
-			objmap.CMD = "error"
-			// fmt.Printf("== %s ==\n", err)
-		}
+	validCmd := []string{"start", "stop", "error"}
+	if contains(validCmd, objmap.CMD) == false {
+		err = "Bad cmd"
+		objmap.CMD = "error"
+	}
+
+	if objmap.File != "" && objmap.Pre != "" {
+		objmap.Pre = "" // pre is only usable for new files
+	}
+
+	if (objmap.Pre != "") && (IsLetter(objmap.Pre) == false) {
+		err = "Bad prefix"
+		objmap.CMD = "error"
+		objmap.Pre = ""
 	}
 
 	sevenOrMore, number, upper, _ := verifyPassword(objmap.Pass)
@@ -121,15 +138,16 @@ func ParseEntry(msg []byte) (string, string, string, string, string) {
 	if objmap.CMD == "start" && validPass == false {
 		err = "Bad password"
 		objmap.CMD = "error"
-		// fmt.Printf("== %s ==\n", err)
+		objmap.Pass = ""
 	}
 
 	if objmap.File != "" && IsSafeChar(objmap.File) == false {
 		err = "Bad file name"
 		objmap.CMD = "error"
 		objmap.File = ""
-		// fmt.Printf("== %s ==\n", err)
 	}
+
+	// fmt.Printf("== %s ==\n", err)
 
 	return err, objmap.CMD, objmap.Pass, objmap.File, objmap.Pre
 }
@@ -192,7 +210,7 @@ func StartProc(res Res, file string, pre string, pass string, debug bool, config
 		dflag = "-d"
 	}
 
-	// select files
+	// create or select file
 	filename := ""
 	if file == "" {
 		t := time.Now()
@@ -236,10 +254,10 @@ func StartProc(res Res, file string, pre string, pass string, debug bool, config
 
 	// set links
 	randfile := randStringBytes(12)
-	res.PublicFile = config.PublicDir + "/" + randfile
+	res.PublicFile = config.PublicDir + "/" + randfile // for URL
 	pwd, _ := os.Getwd()
 	path := config.PublicPath + "/" + randfile
-	res.PublicPath = path
+	res.PublicPath = path // for stop processes
 	os.Symlink(pwd+"/"+filename+".sql", path+".sql")
 	os.Symlink(pwd+"/"+filename+".log", path+".log")
 

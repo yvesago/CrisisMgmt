@@ -20,7 +20,8 @@ func TestParse(t *testing.T) {
 
 	assert.Equal(t, "XpdUC2sK8Tpb", randStringBytes(12), "test 12 char rand string")
 
-	o := []byte(`{"CMD":"start","Pass":"qwerty1Q","File":"a12-02-2018","Pre":"a"}`)
+	// start old session
+	o := []byte(`{"CMD":"start","Pass":"qwerty1Q","File":"a12-02-2018","Pre":""}`)
 
 	emsg, hcmd, pass, file, pre := ParseEntry(o)
 
@@ -28,27 +29,48 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, "", emsg, "no error")
 	assert.Equal(t, "qwerty1Q", pass, "pass")
 	assert.Equal(t, "a12-02-2018", file, "file")
+	assert.Equal(t, "", pre, "prefix")
+
+	// create new session
+	o = []byte(`{"CMD":"start","Pass":"qwerty1Q","File":"","Pre":"a"}`)
+	emsg, hcmd, pass, file, pre = ParseEntry(o)
+	assert.Equal(t, "start", hcmd, "CMD start")
+	assert.Equal(t, "", emsg, "no error")
+	assert.Equal(t, "qwerty1Q", pass, "pass")
+	assert.Equal(t, "", file, "file")
 	assert.Equal(t, "a", pre, "prefix")
 
+	// test bad CMD
+	o = []byte(`{"CMD":"xxx","Pass":"qwerty1Q","File":"a12-02-2018","Pre":"a"}`)
+	emsg, hcmd, pass, file, pre = ParseEntry(o)
+
+	assert.Equal(t, "error", hcmd, "CMD error")
+	assert.Equal(t, "Bad cmd", emsg, "no error")
+	assert.Equal(t, "", pre, "prefix")
+
+	// test bad pass
 	o = []byte(`{"CMD":"start","Pass":"qwerty","File":"a12-02-2018","Pre":"a"}`)
 	emsg, hcmd, pass, file, pre = ParseEntry(o)
 
 	assert.Equal(t, "error", hcmd, "CMD error")
 	assert.Equal(t, "Bad password", emsg, "no error")
+	assert.Equal(t, "", pass, "bad password")
+	assert.Equal(t, "", pre, "prefix")
 
-	// test prefix only with empty file
+	// test bad prefix
 	o = []byte(`{"CMD":"start","Pass":"qwerty1Q","File":"","Pre":"..2\n"}`)
 	emsg, hcmd, pass, file, pre = ParseEntry(o)
 
 	assert.Equal(t, "error", hcmd, "CMD error")
-	assert.Equal(t, "Bad prefix", emsg, "no error")
+	assert.Equal(t, "Bad prefix", emsg, "prefix error")
+	assert.Equal(t, "", pre, "bad prefix")
 
 	o = []byte(`{"CMD":"start","Pass":"qwerty1Q","File":"../a12-02-2018","Pre":"a"}`)
 	emsg, hcmd, pass, file, pre = ParseEntry(o)
 
 	assert.Equal(t, "error", hcmd, "CMD error")
 	assert.Equal(t, "Bad file name", emsg, "no error")
-	assert.Equal(t, "a", pre, "no error")
+	assert.Equal(t, "", pre, "no error")
 	assert.Equal(t, "", file, "bad file name")
 	assert.Equal(t, "qwerty1Q", pass, "no error")
 
@@ -57,14 +79,18 @@ func TestParse(t *testing.T) {
 	assert.Equal(t, true, number, "number")
 	assert.Equal(t, true, upper, "upper")
 	assert.Equal(t, true, special, "special")
-	assert.Equal(t, true, (special && number && upper && special), "valid pass")
+	validPass := false
+	validPass = special && number && upper && special
+	assert.Equal(t, true, validPass, "valid pass")
 
 	sevenOrMore, number, upper, special = verifyPassword("qwerty1Q")
 	assert.Equal(t, true, sevenOrMore, "sevenOrMore")
 	assert.Equal(t, true, number, "number")
 	assert.Equal(t, true, upper, "upper")
 	assert.Equal(t, false, special, "special")
-	assert.Equal(t, false, (special && number && upper && special), "unvalid pass")
+	validPass = false
+	validPass = special && number && upper && special
+	assert.Equal(t, false, validPass, "unvalid pass")
 
 	sevenOrMore, number, upper, special = verifyPassword("qwerty")
 	assert.Equal(t, false, sevenOrMore, "sevenOrMore")
