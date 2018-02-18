@@ -27,11 +27,11 @@ type Config struct {
 	Server     string // server url for html template
 	User       string // user id for processes auth
 	CorsOrigin string
-	PublicDir  string // [files/] for URL
-	PublicPath string // [/home/files/] real path to write links
-	MngmtDir   string // [mngmt/] protected websocket dir
-	AuthAdmins []string
-	LogFile    string // CrisisMgmt logs, not used with debug
+	PublicDir  string   // [files/] for URL
+	PublicPath string   // [/home/files/] real path to write links
+	MngmtDir   string   // [mngmt/] protected websocket dir
+	AuthAdmins []string // "*" any user, "" no auth needed
+	LogFile    string   // CrisisMgmt logs, not used with debug
 }
 
 // Res : status of current process
@@ -269,6 +269,44 @@ func StartProc(res Res, file string, pre string, pass string, debug bool, config
 	return res
 }
 
+// GrantedUsersMiddleware: gin middleware for granted users in X-Forwarded-User
+func GrantedUsersMiddleware(config Config) gin.HandlerFunc {
+
+	return func(c *gin.Context) {
+		ru := c.Request.Header["X-Forwarded-User"]
+		access := false
+		for _, u := range ru {
+			if contains(config.AuthAdmins, u) == true {
+				access = true
+			}
+		}
+
+		// allow access without auth if AuthAdmins contains ""
+		if len(ru) == 0 && contains(config.AuthAdmins, "") {
+			access = true
+		}
+
+		// allow any user
+		if len(ru) != 0 && contains(config.AuthAdmins, "*") {
+			access = true
+		}
+
+		if access == false {
+			t := time.Now()
+			// log
+			log.Printf("%s: %s %s - %s - %s - Access denied\n",
+				t.Format("02-01-2006 15:04:05"),
+				c.Request.Method, c.Request.URL.RequestURI(),
+				c.ClientIP(), ru)
+			c.JSON(401, "Access denied")
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func server(r *gin.Engine, debug bool, config Config) {
 
 	var res Res
@@ -291,39 +329,26 @@ func server(r *gin.Engine, debug bool, config Config) {
 
 	r.HTMLRender = gintemplate.Default()
 
-	r.GET("/", func(c *gin.Context) {
-		// http.ServeFile(c.Writer, c.Request, "index.html")
-		access := false
-		for _, u := range c.Request.Header["X-Forwarded-User"] {
-			if contains(config.AuthAdmins, u) == true {
-				access = true
-			}
-		}
-
-		// allow access without auth if AuthAdmins contains ""
-		if len(c.Request.Header["X-Forwarded-User"]) == 0 && contains(config.AuthAdmins, "") {
-			access = true
-		}
-
-		if access == false {
-			c.JSON(401, "Access denied")
-			c.Abort()
-		} else {
+	auth := r.Group("")
+	auth.Use(GrantedUsersMiddleware(config))
+	{
+		auth.GET("/", func(c *gin.Context) {
+			// http.ServeFile(c.Writer, c.Request, "index.html")
 			c.HTML(200, "index.html", gin.H{
 				"IP":     c.ClientIP(),
 				"wspath": config.MngmtDir,
 				"serv":   config.Server,
 				"user":   c.Request.Header["X-Forwarded-User"],
 			})
-		}
-	})
+		})
 
-	r.GET("/ws", func(c *gin.Context) {
-		ml := make(map[string]interface{})
-		ml["cip"] = c.ClientIP()
-		ml["user"] = c.Request.Header["X-Forwarded-User"]
-		m.HandleRequestWithKeys(c.Writer, c.Request, ml)
-	})
+		auth.GET("/ws", func(c *gin.Context) {
+			ml := make(map[string]interface{})
+			ml["cip"] = c.ClientIP()
+			ml["user"] = c.Request.Header["X-Forwarded-User"]
+			m.HandleRequestWithKeys(c.Writer, c.Request, ml)
+		})
+	}
 
 	m.HandleMessage(func(s *melody.Session, msg []byte) {
 		t := time.Now()
@@ -331,7 +356,9 @@ func server(r *gin.Engine, debug bool, config Config) {
 		ru, _ := s.Get("user")
 
 		if debug == true {
-			fmt.Printf("%s: %s - %+v\n %+v\n", t.Format("02-01-2006 15:04"), ip, ru, string(msg))
+			fmt.Printf("[debug] %s: %s - %+v\n[debug] %+v\n",
+				t.Format("02-01-2006 15:04"), ip, ru,
+				string(msg))
 		}
 
 		emsg, hcmd, pass, file, pre := ParseEntry(msg)
@@ -340,7 +367,7 @@ func server(r *gin.Engine, debug bool, config Config) {
 		res.Admin = fmt.Sprintf("%s", ru)
 
 		// log
-		log.Printf("%s: %s - %s, cmd: %s, file: %s%s, err: %s\n",
+		log.Printf("%s: ws/ - %s - %s - cmd: %s, file: %s%s, err: %s\n",
 			t.Format("02-01-2006 15:04:05"),
 			ip, ru,
 			hcmd, pre, file, emsg)

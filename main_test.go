@@ -125,9 +125,11 @@ func TestServer(t *testing.T) {
 	router := gin.New()
 
 	server(router, true, config)
+
 	/**
-	  test access
-	  **/
+	test access
+	**/
+
 	req, err := http.NewRequest("GET", "/", nil)
 	req.Header.Set("X-Forwarded-User", "user")
 	resp1 := httptest.NewRecorder()
@@ -142,6 +144,7 @@ func TestServer(t *testing.T) {
 	/**
 	test template
 	**/
+
 	req, err = http.NewRequest("GET", "/", nil)
 	req.Header.Set("X-Forwarded-User", "admin")
 	if err != nil {
@@ -167,25 +170,24 @@ func TestServer(t *testing.T) {
 	/**
 	test websocket
 	**/
-	/*	m.HandleMessage(func(s *melody.Session, msg []byte) {
-			//fmt.Printf("%+v\n", string(msg))
-			_, _, p, _, _ := ParseEntry(msg)
-			//fmt.Printf("=== %s %s %s ==\n", e, h, p)
-			assert.Equal(t, "qwerty1Q", p, "http success")
-			m.Broadcast([]byte(p))
-		})
-	*/
 
 	s := httptest.NewServer(router)
 	defer s.Close()
 
-	h := http.Header{"X-Forwarded-User": {"admin"}}
+	h := http.Header{"X-Forwarded-User": {"user"}}
 	d := websocket.Dialer{}
 	c, resp, err := d.Dial("ws://"+s.Listener.Addr().String()+"/ws", h)
+	/*if err != nil {
+		t.Fatal(err)
+	}*/
+	assert.Equal(t, http.StatusSwitchingProtocols, 101, "bad handshake : websocket access denied")
+
+	h = http.Header{"X-Forwarded-User": {"admin"}}
+	d = websocket.Dialer{}
+	c, resp, err = d.Dial("ws://"+s.Listener.Addr().String()+"/ws", h)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	assert.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode, "ok switching connect")
 
 	o := []byte(`{"CMD":"start","Pass":"qwerty1Q","File":"12-02-2018","Pre":"a"}`)
@@ -198,8 +200,7 @@ func TestServer(t *testing.T) {
 	// _, respws, er := c.ReadMessage()
 	var respws Res
 	c.ReadJSON(&respws)
-	fmt.Printf("%+v\n", respws)
-
+	// fmt.Printf("[test resp] %+v\n", respws)
 	assert.Equal(t, "qwerty1Q", respws.Pass, "test return passwd")
 
 	o = []byte(`{"CMD":"stop"}`)
@@ -208,7 +209,15 @@ func TestServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.ReadJSON(&respws)
-	fmt.Printf("%+v\n", respws)
+	// fmt.Printf("[test resp] %+v\n", respws)
 	assert.Equal(t, "stop", respws.Status, "test stop cmd")
 
+	/*	m.HandleMessage(func(s *melody.Session, msg []byte) {
+			//fmt.Printf("%+v\n", string(msg))
+			_, _, p, _, _ := ParseEntry(msg)
+			//fmt.Printf("=== %s %s %s ==\n", e, h, p)
+			assert.Equal(t, "qwerty1Q", p, "http success")
+			m.Broadcast([]byte(p))
+		})
+	*/
 }
