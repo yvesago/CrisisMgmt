@@ -1,0 +1,29 @@
+language: go
+sudo: false
+go:
+  - 1.8
+  - tip
+
+go_import_path: github.com/yvesago/CrisisMgmt
+
+install:
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
+  - go get github.com/stretchr/testify/assert
+  - go get github.com/gin-gonic/gin
+  - go get gopkg.in/olahol/melody.v1
+  - go get github.com/foolin/gin-template
+  - go get github.com/itsjamie/gin-cors
+  - go get github.com/yvesago/CrisisLog
+  - go get github.com/yvesago/CrisisBoard
+
+before_script:
+  - ln -s $HOME/gopath/bin/CrisisLog ./CrisisLog
+  - ln -s $HOME/gopath/bin/CrisisBoard ./CrisisBoard
+
+script:
+  - go test -v -covermode=count -coverprofile=coverage.out
+
+after_success:
+  - goveralls -coverprofile=coverage.out -service=travis-ci -repotoken KtIeSBE9dB34eEQrxfpg48q3ZABCKFRwD
+
