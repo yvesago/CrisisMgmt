@@ -1,0 +1,15 @@
+# log: journalctl -u crisismgmt
+
+[Unit]
+Description=CrisisMgmt daemon
+Wants=basic.target
+After=network.target
+
+[Service]
+ExecStart=/FIX_BIN_PATH/CrisisMgmt -conf /FIX_CONF_PATH/conf.json
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
